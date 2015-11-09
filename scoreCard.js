@@ -64,8 +64,8 @@ function getSearchResults() {
 				}
 				$('#waitForInfo').html('');
 			}
-		}, 2500);
-	}, 2500);
+		}, 3000);
+	}, 3000);
 
 }
 
@@ -102,7 +102,8 @@ function holeMap(value) {
 	$('#mapModal').modal('show');
 	$('#mapTitle').html(`<h1>${model.course.name} - Hole ${value + 1}</h1>`);
 	setTimeout(function () {
-		var teeLocation = model.course.holes[value].tee_boxes[0].location;
+		var currentPlayerTee = playersInGame[currentPlayer].tee;
+		var teeLocation = model.course.holes[value].tee_boxes[currentPlayerTee].location;
 		var greenLocation = model.course.holes[value].green_location;
 
 		var map = new google.maps.Map(document.getElementById('map'), {
@@ -166,28 +167,28 @@ function addPlayer() {
         <div class="col-xs-3">
           <div class="radio">
             <label>
-              <input type="radio" name="player${playerCount}Tee" id="womenTee" value="0"> Women Tee
+              <input type="radio" name="player${playerCount}Tee" id="womenTee" value="3"> Women Tee
             </label>
           </div>
         </div>
         <div class="col-xs-3">
           <div class="radio">
             <label>
-              <input type="radio" name="player${playerCount}Tee" id="menTee" value="1" checked> Men Tee
+              <input type="radio" name="player${playerCount}Tee" id="menTee" value="2" checked> Men Tee
             </label>
           </div>
         </div>
         <div class="col-xs-3">
           <div class="radio">
             <label>
-              <input type="radio" name="player${playerCount}Tee" id="championTee" value="2"> Champion Tee
+              <input type="radio" name="player${playerCount}Tee" id="championTee" value="1"> Champion Tee
             </label>
           </div>
         </div>
         <div class="col-xs-3">
           <div class="radio">
             <label>
-              <input type="radio" name="player${playerCount}Tee" id="proTee" value="3"> Pro Tee
+              <input type="radio" name="player${playerCount}Tee" id="proTee" value="0"> Pro Tee
             </label>
           </div>
         </div>
@@ -214,7 +215,16 @@ var Player = function (playerId) {
 		return temp;
 	}();
 
+	this.strokes = function () {
+		var temp = [];
+		for (var i = 0; i < 18; i++) {
+			temp.push(0);
+		}
+		return temp;
+	}();
+
 	this.updateScore = function (holeNumber, value) {
+		this.strokes[holeNumber] = value;
 		this.score[holeNumber] = value - model.course.holes[holeNumber].tee_boxes[0].par;
 	};
 
@@ -234,9 +244,15 @@ var Player = function (playerId) {
 		return total;
 	};
 
-	this.total = function () {
+	this.totalScore = function () {
 		return this.frontNine() + this.backNine();
 	};
+
+	this.totalStrokes = function() {
+		return this.strokes.reduce(function(a, b) {
+			return a + b;
+		});
+	}
 
 };
 
@@ -264,11 +280,11 @@ var createCarousel = {
 
 	controls: function () {
 		$("#playerCarouselInner").append(`
-		<a class="left carousel-control carouselButtons" href="#playerCarousel" role="button" data-slide="prev">
+		<a class="left carousel-control carouselButtons" href="#playerCarousel" onclick="onCarouselLeft()" role="button" data-slide="prev">
 			<span class="glyphicon glyphicon-chevron-left carouselButtons" aria-hidden="true"></span>
 			<span class="sr-only">Previous Player</span>
 		</a>
-		<a class="right carousel-control carouselButtons" href="#playerCarousel" role="button" data-slide="next">
+		<a class="right carousel-control carouselButtons" href="#playerCarousel" onclick="onCarouselRight()" role="button" data-slide="next">
 			<span class="glyphicon glyphicon-chevron-right carouselButtons" aria-hidden="true"></span>
 			<span class="sr-only">Next Player</span>
 		</a>
@@ -292,12 +308,14 @@ var createCarousel = {
 					<div class="col-lg-6 text-center">
 						<div class="col-lg-12"><h1>${playersInGame[i].name}</h1></div>
 						<div class="row">
-							<div class="col-xs-6"><h5>Front Nine</h5></div>
-							<div class="col-xs-6"><h5>Back Nine</h5></div>
+							<div class="col-xs-3"><h5>Front Nine</h5></div>
+							<div class="col-xs-6"><h4>Total Score</h4></div>
+							<div class="col-xs-3"><h5>Back Nine</h5></div>
 						</div>
 						<div class="row">
-							<div class="col-xs-6"><h5>${playersInGame[i].frontNine()}</h5></div>
-							<div class="col-xs-6"><h5>${playersInGame[i].backNine()}</h5></div>
+							<div class="col-xs-3"><h5>${playersInGame[i].frontNine()}</h5></div>
+							<div class="col-xs-6"><h4>${playersInGame[i].totalScore()}</h4></div>
+							<div class="col-xs-3"><h5>${playersInGame[i].backNine()}</h5></div>
 						</div>
 						<div class="col-xs-12 btn btn-primary" onclick="$('#scoreCardSetup').modal('show')"><h5>New Game</h5></div>
 					</div>
@@ -356,22 +374,26 @@ var createTable = {
 	yard: function () {
 		$('#header').append("<th>Yards</th>");
 		var holes = model.course.holes.length;
+		var currentPlayerTee = playersInGame[currentPlayer].tee;
+		if (currentPlayerTee >= model.course.holes[0].tee_boxes.length) {
+			currentPlayerTee = model.course.holes[0].tee_boxes.length - 1;
+		}
 		var total = 0;
 		for (var i = 0; i < holes; i++) {
-			$('#' + i).append(`<td id="yard${i}"><a href="#" onclick="holeMap(${i})"><div>${model.course.holes[i].tee_boxes[0].yards} <i class="fa fa-map-pin"></i></div></a></td>`);
-			total += model.course.holes[i].tee_boxes[0].yards
+			$('#' + i).append(`<td id="yard${i}"><a href="#" onclick="holeMap(${i})"><div>${model.course.holes[i].tee_boxes[currentPlayerTee].yards} <i class="fa fa-map-pin"></i></div></a></td>`);
+			total += model.course.holes[i].tee_boxes[currentPlayerTee].yards
 		}
-		$('#footer').append(`<td>${total}</td>`)
+		$('#footer').append(`<td><a href="#" onclick="courseMap(model.course.location)"><div>${total} <i class="fa fa-map-pin"></i></div></a></td>`)
 	},
 
 	players: function () {
 		for (var i = 0; i < playersInGame.length; i++) {
 			$('#header').append(`<th>${playersInGame[i].name}</th>`);
-			var holes = playersInGame[i].score.length;
+			var holes = playersInGame[i].strokes.length;
 			for (var j = 0; j < holes; j++) {
-				$('#' + j).append(`<td><a href="#" onclick="setPlayerAndHole(${i}, ${j})"><div>${playersInGame[i].score[j]}</div></a></td>`);
+				$('#' + j).append(`<td><a href="#" onclick="setPlayerAndHole(${i}, ${j})"><div>${playersInGame[i].strokes[j]}</div></a></td>`);
 			}
-			$('#footer').append(`<td>${playersInGame[i].total()}</td>`)
+			$('#footer').append(`<td>${playersInGame[i].totalStrokes()}</td>`)
 		}
 		var sizeOfColumns = 100 / (3 + playersInGame.length);
 		$("tr > th, tr > td").css("width", sizeOfColumns + "%");
@@ -383,10 +405,10 @@ function saveAndClose() {
 	$('#loadingModal').modal('show');
 	var courseId = $('#courseChoosen option:selected').val();
 	getCourse(courseId);
-	var interval = 5;
+	var interval = 4;
 	var progressBar = setInterval(function(){
 		$('#progressBar').css('width', interval + '%');
-		interval += 5;
+		interval += 4;
 	}, 50);
 	setTimeout(function () {
 		createPlayers();
@@ -400,7 +422,7 @@ function saveAndClose() {
 		courseMap(model.course.location);
 		$('#loadingModal').modal('hide');
 		clearInterval(progressBar)
-	}, 2000)
+	}, 2500)
 }
 
 function setPlayerAndHole(whichPlayer, whichHole) {
@@ -421,6 +443,24 @@ function updateScoreCard(value) {
 	$('#scoreModal').modal('hide');
 }
 
+function onCarouselLeft() {
+	if (currentPlayer === 0) {
+		currentPlayer = playersInGame.length;
+	}
+	currentPlayer = (currentPlayer - 1)%playersInGame.length;
+	createTable.skeleton();
+	createTable.par();
+	createTable.yard();
+	createTable.players();
+}
+
+function onCarouselRight() {
+	currentPlayer = (currentPlayer + 1)%playersInGame.length;
+	createTable.skeleton();
+	createTable.par();
+	createTable.yard();
+	createTable.players();
+}
 
 //TODO list for player set up
 //TODO build verification for player name

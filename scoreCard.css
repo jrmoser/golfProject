@@ -30,7 +30,7 @@ body {
 
 #swingBySwing {
 	width: 100%;
-	height: calc( 100vh - 200px );
+	height: calc( 100vh - 250px );
 }
 
 .table-striped > tbody > tr:nth-child(odd) > td,
@@ -82,7 +82,7 @@ table.table-fixedheader > tbody > tr > td {
 
 tbody {
 	font-size: 12px;
-	height: 60vh;
+	height: calc( 100vh - 400px );
 }
 
 thead, tfoot {
